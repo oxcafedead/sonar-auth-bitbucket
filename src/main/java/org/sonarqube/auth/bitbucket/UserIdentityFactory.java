@@ -20,6 +20,7 @@
 package org.sonarqube.auth.bitbucket;
 
 import javax.annotation.Nullable;
+
 import org.sonar.api.server.ServerSide;
 import org.sonar.api.server.authentication.UserIdentity;
 
@@ -38,38 +39,37 @@ public class UserIdentityFactory {
     this.settings = settings;
   }
 
-  public UserIdentity create(GsonUser gsonUser, @Nullable GsonEmails gsonEmails) {
-    UserIdentity.Builder builder = builder(gsonUser);
-    if (gsonEmails != null) {
-      builder.setEmail(gsonEmails.extractPrimaryEmail());
-    }
+  public UserIdentity create(OAuthCredentials credentials) {
+    UserIdentity.Builder builder = builder(credentials);
+    builder.setEmail(credentials.getEmail());
     return builder.build();
   }
 
-  private UserIdentity.Builder builder(GsonUser gsonUser) {
+  private UserIdentity.Builder builder(OAuthCredentials credentials) {
     return UserIdentity.builder()
-      .setProviderLogin(gsonUser.getUsername())
-      .setLogin(generateLogin(gsonUser))
-      .setName(generateName(gsonUser));
+      .setProviderLogin(credentials.getUserName())
+      .setLogin(generateLogin(credentials))
+      .setName(generateName(credentials));
   }
 
-  private String generateLogin(GsonUser gsonUser) {
+  private String generateLogin(OAuthCredentials credentials) {
     switch (settings.loginStrategy()) {
       case BitbucketSettings.LOGIN_STRATEGY_PROVIDER_LOGIN:
-        return gsonUser.getUsername();
+        return credentials.getUserName();
       case LOGIN_STRATEGY_UNIQUE:
-        return generateUniqueLogin(gsonUser);
+        return generateUniqueLogin(credentials);
       default:
-        throw new IllegalStateException(format("Login strategy not supported : %s", settings.loginStrategy()));
+        throw new IllegalStateException(
+          format("Login strategy not supported : %s", settings.loginStrategy()));
     }
   }
 
-  private static String generateName(GsonUser gson) {
-    String name = gson.getDisplayName();
-    return name == null || name.isEmpty() ? gson.getUsername() : name;
+  private static String generateName(OAuthCredentials credentials) {
+    String name = credentials.getDisplayName();
+    return name == null || name.isEmpty() ? credentials.getUserName() : name;
   }
 
-  private static String generateUniqueLogin(GsonUser gsonUser) {
-    return format("%s@%s", gsonUser.getUsername(), BitbucketIdentityProvider.KEY);
+  private static String generateUniqueLogin(OAuthCredentials credentials) {
+    return format("%s@%s", credentials.getUserName(), BitbucketIdentityProvider.KEY);
   }
 }

@@ -30,6 +30,8 @@ import org.sonar.api.server.ServerSide;
 
 import static java.lang.String.format;
 import static org.sonar.api.PropertyType.SINGLE_SELECT_LIST;
+import static org.sonar.api.PropertyType.STRING;
+import static org.sonar.api.PropertyType.TEXT;
 
 @ServerSide
 public class BitbucketSettings {
@@ -38,11 +40,9 @@ public class BitbucketSettings {
   public static final String CONSUMER_SECRET = "sonar.auth.bitbucket.clientSecret.secured";
   public static final String ENABLED = "sonar.auth.bitbucket.enabled";
   public static final String ALLOW_USERS_TO_SIGN_UP = "sonar.auth.bitbucket.allowUsersToSignUp";
-  public static final String API_URL = "sonar.auth.bitbucket.apiUrl";
-  public static final String DEFAULT_API_URL = "https://api.bitbucket.org/";
-
-  // URLs are not configurable yet
   public static final String WEB_URL = "sonar.auth.bitbucket.webUrl";
+  public static final String SIGN_KEY = "sonar.auth.bitbucket.signKey";
+  // URLs are not configurable yet
   public static final String DEFAULT_WEB_URL = "https://bitbucket.org/";
   public static final String LOGIN_STRATEGY = "sonar.auth.bitbucket.loginStrategy";
   public static final String LOGIN_STRATEGY_UNIQUE = "Unique";
@@ -87,12 +87,8 @@ public class BitbucketSettings {
     return urlWithEndingSlash(url);
   }
 
-  public String apiURL() {
-    String url = settings.getString(API_URL);
-    if (url == null) {
-      url = DEFAULT_API_URL;
-    }
-    return urlWithEndingSlash(url);
+  public String signKey() {
+    return settings.getString(SIGN_KEY);
   }
 
   private static String urlWithEndingSlash(String url) {
@@ -140,7 +136,7 @@ public class BitbucketSettings {
       PropertyDefinition.builder(LOGIN_STRATEGY)
         .name("Login generation strategy")
         .description(format("When the login strategy is set to '%s', the user's login will be auto-generated the first time so that it is unique. " +
-          "When the login strategy is set to '%s', the user's login will be the Bitbucket login.",
+            "When the login strategy is set to '%s', the user's login will be the Bitbucket login.",
           LOGIN_STRATEGY_UNIQUE, LOGIN_STRATEGY_PROVIDER_LOGIN))
         .category(CATEGORY)
         .subCategory(SUBCATEGORY)
@@ -149,14 +145,22 @@ public class BitbucketSettings {
         .options(LOGIN_STRATEGY_UNIQUE, LOGIN_STRATEGY_PROVIDER_LOGIN)
         .index(index++)
         .build(),
-      PropertyDefinition.builder(API_URL)
-        .name("Bitbucket Api url")
-        .description("Configurable Bit bucket url.")
+      PropertyDefinition.builder(WEB_URL)
+        .name("Bitbucket server URL")
+        .description("If you are using Bitbucket server, you should specify URL here")
         .category(CATEGORY)
         .subCategory(SUBCATEGORY)
-        .defaultValue(DEFAULT_API_URL)
-        .index(index)
+        .defaultValue(DEFAULT_WEB_URL)
+        .index(index++)
+        .build(),
+      PropertyDefinition.builder(SIGN_KEY)
+        .name("Private signing key")
+        .description(
+          "RSA private key in PKCS8 format for signing oauth requests (Bitbucket uses RSA-SHA1 signature method).")
+        .category(CATEGORY)
+        .type(TEXT)
+        .subCategory(SUBCATEGORY)
+        .index(index++)
         .build());
   }
-
 }

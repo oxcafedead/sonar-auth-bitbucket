@@ -1,6 +1,6 @@
-# Bitbucket Authentication Plugin for SonarQube #
+# Bitbucket Server Authentication Plugin for SonarQube #
 
-This plugin enables user authentication and Single Sign-On via [Bitbucket](https://bitbucket.org/).
+This plugin enables user authentication and Single Sign-On via Bitbucket server.
 If you want to analyse Bitbucket Pull Requests you should use [this](https://github.com/AmadeusITGroup/sonar-stash) or [this](https://github.com/mibexsoftware/sonar-bitbucket-plugin) plugin.
 
 ## Installation ##
@@ -19,6 +19,8 @@ If you want to analyse Bitbucket Pull Requests you should use [this](https://git
   2. Set the "Enabled" property to true
   3. Set the "OAuth consumer Key" from the value provided by the Bitbucket OAuth consumer
   4. Set the "OAuth consumer Secret" from the value provided by the Bitbucket OAuth consumer
+  5. Set the "Bitbucket server URL" to know where's your private Bitbucket server locates
+  6. Set the "Private signing key" to sign oauth requests
 3. Go to the login form, a new button "Log in with Bitbucket" allow users to connect to SonarQube with their Bitbucket accounts.
 
 > Note: Only HTTPS is supported
@@ -34,11 +36,3 @@ sonar.auth.bitbucket.clientId.secured|Consumer Key provided by Bitbucket when re
 sonar.auth.bitbucket.clientSecret.secured|Consumer password provided by Bitbucket when registering the consumer|None
 sonar.auth.bitbucket.enabled|Enable Bitbucket users to login. Value is ignored if consumer Key and Secret are not defined|false
 sonar.auth.bitbucket.loginStrategy|When the login strategy is set to 'Unique', the user's login will be auto-generated the first time so that it is unique. When the login strategy is set to 'Same as Bitbucket login', the user's login will be the Bitbucket login. This last strategy allows, when changing the authentication provider, to keep existing users (if logins from new provider are the same than Bitbucket)|Unique
-sonar.auth.bitbucket.apiUrl|Allows configurable bitbucket api url for pointing it to your bitbucket server. This will allow users & credentials to be reused from configured bitbucket|https://api.bitbucket.org// 
-
-# Have question or feedback?
-To provide feedback (request a feature, report a bug etc.) use the [SonarQube Google Group](https://groups.google.com/forum/#!forum/sonarqube). Please do not forget to specify plugin and SonarQube versions if it relates to a bug.
-If you have a question on how to use plugin direct it to [StackOverflow](http://stackoverflow.com/questions/tagged/sonarqube+bitbucket) tagged both `sonarqube` and `bitbucket`.
-
-# Development
-[![Build Status](https://api.travis-ci.org/SonarQubeCommunity/sonar-auth-bitbucket.svg)](https://travis-ci.org/SonarQubeCommunity/sonar-auth-bitbucket)

@@ -26,34 +26,32 @@ import com.github.scribejava.core.model.Token;
 import com.github.scribejava.core.model.Verb;
 import com.github.scribejava.core.model.Verifier;
 import com.github.scribejava.core.oauth.OAuthService;
-import javax.annotation.CheckForNull;
-import javax.servlet.http.HttpServletRequest;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.sonar.api.server.ServerSide;
 import org.sonar.api.server.authentication.Display;
 import org.sonar.api.server.authentication.OAuth2IdentityProvider;
 import org.sonar.api.server.authentication.UserIdentity;
-import org.sonar.api.utils.log.Logger;
-import org.sonar.api.utils.log.Loggers;
 
-import static java.lang.String.format;
+import javax.servlet.http.HttpServletRequest;
 
 @ServerSide
 public class BitbucketIdentityProvider implements OAuth2IdentityProvider {
 
-  private static final Logger LOGGER = Loggers.get(BitbucketIdentityProvider.class);
-
   public static final String REQUIRED_SCOPE = "account";
   public static final String KEY = "bitbucket";
-  private static final Token EMPTY_TOKEN = null;
 
   private final BitbucketSettings settings;
   private final UserIdentityFactory userIdentityFactory;
-  private final BitbucketScribeApi scribeApi;
+  private final BitbucketScribeApi10a scribeApi10a;
 
-  public BitbucketIdentityProvider(BitbucketSettings settings, UserIdentityFactory userIdentityFactory, BitbucketScribeApi scribeApi) {
+  public BitbucketIdentityProvider(
+    BitbucketSettings settings,
+    UserIdentityFactory userIdentityFactory,
+    BitbucketScribeApi10a scribeApi10a) {
     this.settings = settings;
     this.userIdentityFactory = userIdentityFactory;
-    this.scribeApi = scribeApi;
+    this.scribeApi10a = scribeApi10a;
   }
 
   @Override
@@ -87,50 +85,56 @@ public class BitbucketIdentityProvider implements OAuth2IdentityProvider {
 
   @Override
   public void init(InitContext context) {
-    OAuthService scribe = newScribeBuilder(context)
-      .scope(REQUIRED_SCOPE)
-      .build();
-    String url = scribe.getAuthorizationUrl(EMPTY_TOKEN);
+    OAuthService scribe = newScribeBuilder(context).scope(REQUIRED_SCOPE).build();
+    Token requestToken = scribe.getRequestToken();
+    String url = scribe.getAuthorizationUrl(requestToken);
     context.redirectTo(url);
   }
 
   @Override
   public void callback(CallbackContext context) {
     HttpServletRequest request = context.getRequest();
-    OAuthService scribe = newScribeBuilder(context).build();
-    String oAuthVerifier = request.getParameter("code");
-    Token accessToken = scribe.getAccessToken(EMPTY_TOKEN, new Verifier(oAuthVerifier));
+    OAuthService scribe = newScribeBuilder(context).scope(REQUIRED_SCOPE).build();
+    Token accessToken =
+      scribe.getAccessToken(
+        new Token(request.getParameter("oauth_token"), scribe.getConfig().getApiSecret()),
+        new Verifier(request.getParameter("oauth_verifier")));
 
-    GsonUser gsonUser = requestUser(scribe, accessToken);
-    GsonEmails gsonEmails = requestEmails(scribe, accessToken);
-    UserIdentity userIdentity = userIdentityFactory.create(gsonUser, gsonEmails);
+    String userName = fetchUserName(scribe, accessToken);
+    OAuthCredentials credentials = fetchUserDetails(scribe, accessToken, userName);
+
+    UserIdentity userIdentity = userIdentityFactory.create(credentials);
     context.authenticate(userIdentity);
     context.redirectToRequestedPage();
   }
 
-  private GsonUser requestUser(OAuthService scribe, Token accessToken) {
-    OAuthRequest userRequest = new OAuthRequest(Verb.GET, settings.apiURL() + "2.0/user", scribe);
+  private String fetchUserName(OAuthService scribe, Token accessToken) {
+    OAuthRequest userRequest =
+      new OAuthRequest(Verb.GET, settings.webURL() + "plugins/servlet/applinks/whoami", scribe);
     scribe.signRequest(accessToken, userRequest);
     Response userResponse = userRequest.send();
-
     if (!userResponse.isSuccessful()) {
-      throw new IllegalStateException(format("Can not get Bitbucket user profile. HTTP code: %s, response: %s",
-        userResponse.getCode(), userResponse.getBody()));
+      throw new IllegalStateException("Can not get Bitbucket user profile." + userResponse);
     }
-    String userResponseBody = userResponse.getBody();
-    LOGGER.trace("User response received : %s", userResponseBody);
-    return GsonUser.parse(userResponseBody);
+
+    // Username is a body of the response in fact
+    return userResponse.getBody();
   }
 
-  @CheckForNull
-  private GsonEmails requestEmails(OAuthService scribe, Token accessToken) {
-    OAuthRequest userRequest = new OAuthRequest(Verb.GET, settings.apiURL() + "2.0/user/emails", scribe);
-    scribe.signRequest(accessToken, userRequest);
-    Response emailsResponse = userRequest.send();
-    if (emailsResponse.isSuccessful()) {
-      return GsonEmails.parse(emailsResponse.getBody());
+  private OAuthCredentials fetchUserDetails(
+    OAuthService scribe, Token accessToken, String userName) {
+    OAuthRequest userDetailsRequest =
+      new OAuthRequest(Verb.GET, settings.webURL() + "rest/api/latest/users/" + userName, scribe);
+    scribe.signRequest(accessToken, userDetailsRequest);
+    Response detailsResponse = userDetailsRequest.send();
+    if (!detailsResponse.isSuccessful()) {
+      throw new IllegalStateException("Can't get user details." + detailsResponse);
     }
-    return null;
+
+    JsonObject asJsonObject = new JsonParser().parse(detailsResponse.getBody()).getAsJsonObject();
+    String emailAddress = asJsonObject.get("emailAddress").getAsString();
+    String displayName = asJsonObject.get("displayName").getAsString();
+    return new OAuthCredentials(userName, displayName, emailAddress);
   }
 
   private ServiceBuilder newScribeBuilder(OAuth2IdentityProvider.OAuth2Context context) {
@@ -138,7 +142,7 @@ public class BitbucketIdentityProvider implements OAuth2IdentityProvider {
       throw new IllegalStateException("Bitbucket authentication is disabled");
     }
     return new ServiceBuilder()
-      .provider(scribeApi)
+      .provider(scribeApi10a)
       .apiKey(settings.clientId())
       .apiSecret(settings.clientSecret())
       .grantType("authorization_code")
