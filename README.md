@@ -1,4 +1,5 @@
 # Bitbucket Server Authentication Plugin for SonarQube #
+[![Build Status](https://travis-ci.org/oxcafedead/sonar-auth-bitbucket.svg?branch=master)](https://travis-ci.org/oxcafedead/sonar-auth-bitbucket)
 
 This plugin enables user authentication and Single Sign-On via Bitbucket server.
 If you want to analyse Bitbucket Pull Requests you should use [this](https://github.com/AmadeusITGroup/sonar-stash) or [this](https://github.com/mibexsoftware/sonar-bitbucket-plugin) plugin.
